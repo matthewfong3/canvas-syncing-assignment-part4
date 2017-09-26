@@ -1,13 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="/socket.io/socket.io.js"></script>
     <script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
     <script type="text/babel" >
         "use strict";
-    
+        
+        let socket;
+
+        let canvas;
+        let ctx;
+        let sendBufferCanvas;
+        let sendBufferCtx;
+
+        const setup = () => {
+          sendBufferCanvas = document.createElement('canvas');
+          sendBufferCanvas.height = 200;
+          sendBufferCanvas.width = 200;
+          sendBufferCtx = sendBufferCanvas.getContext('2d');
+          
+          let randomX = Math.random() * ((canvas.width - 50) - 1) + 1;
+          let randomY = Math.random() * ((canvas.height - 50) - 1) + 1;
+           
+          let r = Math.round(Math.random()*255);
+          let g = Math.round(Math.random()*255);
+          let b = Math.round(Math.random()*255);
+          ctx.fillStyle = 'rgb(' + r + ', ' + g + ', ' + b + ')';
+          ctx.fillRect(randomX, randomY, 50, 50); // draws to the screen canvas
+          
+          sendBufferCtx.fillRect(0, 0, 50, 50); // draws to (hidden) buffer canvas
+          
+          const data = {
+            x: randomX,
+            y: randomY,
+            height: 200,
+            width: 200,
+            imgData: sendBufferCanvas.toDataURL() // get pixel data from canvas
+          };
+          
+          socket.emit('updateOnServer', data);
+        };
+
+        const handleMessage = (data) => {
+          let image = new Image();
+          
+          image.onload = () => {
+            ctx.save();
+            ctx.globalCompositeOperation = 'source-over'; // this is default for canvas
+            ctx.drawImage(image, data.x, data.y, data.width, data.height);
+            ctx.restore();
+          };
+          
+          image.src = data.imgData;
+        };
+
+        const init = () => {
+          canvas = document.querySelector('#canvas');
+          ctx = canvas.getContext('2d');
+          
+          socket = io.connect();
+          
+          socket.on('connect', () => {
+            canvas.addEventListener('click', setup);
+          });
+          
+          socket.on('updateOnClient', handleMessage);
+        };
+
+        window.onload = init;
     </script>
 </head>
 <body>
-
+  <canvas id="canvas" width="500" height="500"></canvas>
 </body>
 </html>
